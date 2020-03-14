@@ -1,0 +1,12 @@
+version: '2'
+
+services:
+  empfaengerverifizierung:
+    container_name: empfaengerverifizierung
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    volumes:
+      - ./.env:/opt/.env
+    ports:
+    - 8080:8080
