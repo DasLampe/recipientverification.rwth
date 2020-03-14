@@ -1,8 +1,8 @@
 version: '2'
 
 services:
-  empfaengerverifizierung:
-    container_name: empfaengerverifizierung
+  recipientVerification:
+    container_name: recipientVerification
     build:
       context: .
       dockerfile: ./Dockerfile
