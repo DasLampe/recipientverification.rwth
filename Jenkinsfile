@@ -12,7 +12,7 @@ pipeline {
                 ]) {
                     sh "ssh -i ${keyfile} jenkinsdeploy@${params.deployHost} 'rm -rf /var/www/recipientVerification/*'"
                     sh "scp -r -i ${keyfile} $WORKSPACE/* jenkinsdeploy@${params.deployHost}:/var/www/recipientVerification"
-                    sh "scp -i ${keyfile} ${environmentFile} jenkinsdeploy@${params.deployHost}:/var/www/recipientVerification/.env'"
+                    sh "scp -i ${keyfile} ${environmentFile} jenkinsdeploy@${params.deployHost}:/var/www/recipientVerification/.env"
                 }
             }
         }
