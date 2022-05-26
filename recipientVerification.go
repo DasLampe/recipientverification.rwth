@@ -34,7 +34,7 @@ func List(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err.Error())
 	}
 
-	rows, err := db.Query("SELECT username FROM people WHERE local = 1")
+	rows, err := db.Query("SELECT username FROM people WHERE local = 1 UNION SELECT name FROM role_accounts")
 	if err != nil {
 		log.Panic(err.Error()) // proper error handling instead of panic in your app
 	}
