@@ -1,12 +1,10 @@
-version: '2'
-
 services:
   recipient_verification:
     container_name: recipient_verification
     build:
       context: .
       dockerfile: ./Dockerfile
-    volumes:
-      - ./.env:/opt/.env
+    env_file:
+      - .env
     ports:
     - 8080:8080

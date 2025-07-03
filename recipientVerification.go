@@ -3,73 +3,87 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"text/template"
 
+	_ "embed"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/joho/godotenv"
 )
 
-var tmpl = template.Must(template.ParseGlob("templates/*"))
+//go:embed templates/List.tmpl
+var tmpl string
 
 type User struct {
 	Username string
 }
 
-func List(w http.ResponseWriter, r *http.Request) {
-	err := godotenv.Load() //Load .env file
+func getUsers(dbHost, dbUser, dbPass string) ([]User, error) {
+	var users []User
 
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:3306)/mail_production", dbUser, dbPass, dbHost))
 	if err != nil {
-		log.Fatal(err.Error())
+		return users, err
 	}
-
-	host := os.Getenv("DB_HOST")
-	username := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:3306)/mail_production", username, password, host))
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+	defer db.Close()
 
 	rows, err := db.Query("SELECT username FROM people WHERE local = 1 UNION SELECT name FROM role_accounts")
 	if err != nil {
-		log.Panic(err.Error()) // proper error handling instead of panic in your app
+		return users, err
 	}
 	defer rows.Close()
-
-	user := User{}
-	var res []User
 
 	for rows.Next() {
 		var username string
 
 		err = rows.Scan(&username)
 		if err != nil {
-			panic(err.Error())
+			return users, err
 		}
-		user.Username = username
-
-		res = append(res, user)
+		users = append(users, User{Username: username})
 	}
 
-	err = tmpl.ExecuteTemplate(w, "List", res)
+	return users, nil
+}
 
-	if err != nil {
-		log.Fatal(err.Error())
+func handleAdressenliste(dbHost, dbUsername, dbPassword string, getUserFunc func(dbHost, dbUsername, dbPassword string) ([]User, error)) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slog.Info("Received request to verify adressen liste")
+
+		users, err := getUserFunc(dbHost, dbUsername, dbPassword)
+		if err != nil {
+			slog.Error("Error getting users:", "err", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		t, err := template.New("").Parse(tmpl)
+		if err != nil {
+			slog.Error("Error parsing template:", "err", err, "users", users)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if err := t.Execute(w, users); err != nil {
+			slog.Error("Error executing template:", "err", err, "users", users)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}
-
-	defer db.Close()
 }
 
 func main() {
-	log.Println("Server started on: http://localhost:8080")
-	http.HandleFunc("/adressenliste", List)
+	host := os.Getenv("DB_HOST")
+	username := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+
+	slog.Info("Starting recipient verification server")
+	http.HandleFunc("/adressenliste", handleAdressenliste(host, username, password, getUsers))
 
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
-		log.Fatal(err.Error())
+		slog.Error("Error starting http server", "err", err)
 	}
+	return
 }
